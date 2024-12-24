@@ -27,7 +27,7 @@ public class CodeGenerator {
      */
     public static void main(String[] args) throws TemplateException, IOException {
         //todo 生成代码修改对应的参数名
-        String packageName = "com.pjieyi.ananswer";
+        String packageName = "com.pjieyi.aianswer";
         String dataName = "用户评论";
         String dataKey = "userComment";
         String upperDataKey = "UserComment";
