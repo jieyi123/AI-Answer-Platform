@@ -19,6 +19,9 @@ npm run build
 ```
 npm run lint
 ```
+node v20.10.0
+
+npm v10.2.3
 
 ### Customize configuration
 See [Configuration Reference](https://cli.vuejs.org/config/).
