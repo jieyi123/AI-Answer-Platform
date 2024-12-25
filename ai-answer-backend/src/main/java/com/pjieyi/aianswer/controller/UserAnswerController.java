@@ -20,6 +20,7 @@ import com.pjieyi.aianswer.model.entity.UserAnswer;
 import com.pjieyi.aianswer.model.entity.User;
 import com.pjieyi.aianswer.model.enums.ReviewStatusEnum;
 import com.pjieyi.aianswer.model.vo.UserAnswerVO;
+import com.pjieyi.aianswer.scoring.ScoringStrategyExecutor;
 import com.pjieyi.aianswer.service.AppService;
 import com.pjieyi.aianswer.service.UserAnswerService;
 import com.pjieyi.aianswer.service.UserService;
@@ -48,6 +49,9 @@ public class UserAnswerController {
 
     @Resource
     private AppService appService;
+
+    @Resource
+    private ScoringStrategyExecutor scoringStrategyExecutor;
 
     // region 增删改查
 
@@ -82,6 +86,12 @@ public class UserAnswerController {
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         // 返回新写入的数据 id
         long newUserAnswerId = userAnswer.getId();
+        // 调用评分模块
+        //评分可能是AI评分，为了及时响应，先保存一些数据，等待AI响应成功后，在修改对应的信息
+        UserAnswer userAnswerWithResult = scoringStrategyExecutor.doScore(choices, app);
+        userAnswerWithResult.setId(newUserAnswerId);
+        userAnswerService.updateById(userAnswerWithResult);
+        // 返回新写入的数据 id
         return ResultUtils.success(newUserAnswerId);
     }
 
