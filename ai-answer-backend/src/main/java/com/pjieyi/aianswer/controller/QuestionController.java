@@ -1,7 +1,5 @@
 package com.pjieyi.aianswer.controller;
 
-import com.pjieyi.aianswer.model.dto.question.QuestionContentDTO;
-
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -13,6 +11,7 @@ import com.pjieyi.aianswer.common.ResultUtils;
 import com.pjieyi.aianswer.constant.UserConstant;
 import com.pjieyi.aianswer.exception.BusinessException;
 import com.pjieyi.aianswer.exception.ThrowUtils;
+import com.pjieyi.aianswer.manager.AIManager;
 import com.pjieyi.aianswer.model.dto.question.*;
 import com.pjieyi.aianswer.model.entity.App;
 import com.pjieyi.aianswer.model.entity.Question;
@@ -24,6 +23,7 @@ import com.pjieyi.aianswer.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -45,6 +45,10 @@ public class QuestionController {
 
     @Resource
     private AppService appService;
+
+    @Resource
+    private AIManager aiManager;
+
 
     // region 增删改查
 
@@ -252,4 +256,17 @@ public class QuestionController {
     }
 
     // endregion
+
+    @PostMapping("/ai_generate")
+    public BaseResponse<List<QuestionContentDTO>> aiGenerateQuestion(@RequestBody AiGenerateQuestionRequest questionRequest){
+      ThrowUtils.throwIf(questionRequest == null, ErrorCode.PARAMS_ERROR);
+      return ResultUtils.success(questionService.aiGenerateQuestion(questionRequest));
+    }
+
+    //流式调用
+    @GetMapping("/ai_generate/sse")
+    public SseEmitter aiGenerateQuestionSse(AiGenerateQuestionRequest questionRequest) {
+        ThrowUtils.throwIf(questionRequest == null, ErrorCode.PARAMS_ERROR);
+        return questionService.aiGenerateQuestionSse(questionRequest);
+    }
 }

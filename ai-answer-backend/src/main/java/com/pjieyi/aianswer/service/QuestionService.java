@@ -3,11 +3,15 @@ package com.pjieyi.aianswer.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.pjieyi.aianswer.model.dto.question.AiGenerateQuestionRequest;
+import com.pjieyi.aianswer.model.dto.question.QuestionContentDTO;
 import com.pjieyi.aianswer.model.dto.question.QuestionQueryRequest;
 import com.pjieyi.aianswer.model.entity.Question;
 import com.pjieyi.aianswer.model.vo.QuestionVO;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * 题目服务
@@ -48,4 +52,19 @@ public interface QuestionService extends IService<Question> {
      * @return
      */
     Page<QuestionVO> getQuestionVOPage(Page<Question> questionPage, HttpServletRequest request);
+
+    /**
+     * AI生成题目
+     *
+     * @param questionRequest
+     * @return
+     */
+    List<QuestionContentDTO> aiGenerateQuestion(AiGenerateQuestionRequest questionRequest);
+
+    /**
+     * AI生成题目 (流式调用)
+     * @param questionRequest
+     * @return
+     */
+    SseEmitter aiGenerateQuestionSse(AiGenerateQuestionRequest questionRequest);
 }
