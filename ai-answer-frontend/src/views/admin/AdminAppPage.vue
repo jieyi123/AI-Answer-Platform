@@ -177,6 +177,7 @@ const handleReview = async () => {
     ...form,
   });
   if (res.data.code === 0) {
+    message.success("审核完成");
     loadData();
   } else {
     message.error("审核失败，" + res.data.message);
@@ -195,9 +196,9 @@ const doReview = (record: API.App) => {
   if (!record.id) {
     return;
   }
-  form.id=record.id;
-  form.reviewStatus=record.reviewStatus;
-  form.reviewMessage=record.reviewMessage;
+  form.id = record.id;
+  form.reviewStatus = record.reviewStatus;
+  form.reviewMessage = record.reviewMessage;
   visible.value = true;
 };
 /**

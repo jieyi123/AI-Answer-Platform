@@ -2,7 +2,7 @@ import axios from "axios";
 import { Message } from "@arco-design/web-vue";
 const myAxios = axios.create({
     baseURL: "http://localhost:8101",
-    timeout: 10000,
+    timeout: 60000,
     withCredentials: true,
 });
 // 全局请求拦截器

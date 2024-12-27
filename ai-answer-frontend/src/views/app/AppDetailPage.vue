@@ -37,17 +37,20 @@
             >设置评分
             </a-button>
             <a-button v-if="isMy" :href="`/add/app/${id}`">修改应用</a-button>
+            <a-button @click="streamAPI">测试调用</a-button>
           </a-space>
         </a-col>
         <a-col flex="320px">
           <a-image width="100%" :src="data.appIcon" />
         </a-col>
       </a-row>
+      {{dataList}}
     </a-card>
+
   </div>
 </template>
 <script setup lang="ts">
-import { computed, defineProps, ref, watchEffect, withDefaults } from "vue";
+import {computed, defineProps, reactive, ref, watchEffect, withDefaults} from "vue";
 import API from "@/api";
 import { getAppVoByIdUsingGet } from "@/api/appController";
 import message from "@arco-design/web-vue/es/message";
@@ -94,6 +97,25 @@ const loadData = async () => {
 watchEffect(() => {
   loadData();
 });
+
+const dataList=ref<string>("");
+
+const streamAPI =  () => {
+  // 创建 SSE 请求
+  const eventSource = new EventSource(
+      "http://localhost:8101/api/question/ai_generate/sse"
+  );
+// 接收消息
+  eventSource.onmessage = function (event) {
+    dataList.value=dataList.value+event.data;
+  };
+// 生成结束，关闭连接
+  eventSource.onerror = function (event) {
+    if (event.eventPhase === EventSource.CLOSED) {
+      eventSource.close();
+    }
+  };
+};
 </script>
 <style scoped>
 #appDetailPage {
