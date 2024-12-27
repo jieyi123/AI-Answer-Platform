@@ -72,3 +72,7 @@ knife4j:
         api-rule: package
         api-rule-resources:
           - com.pjieyi.aianswer.controller
+
+# 智普AI
+ai:
+  secretKey:
