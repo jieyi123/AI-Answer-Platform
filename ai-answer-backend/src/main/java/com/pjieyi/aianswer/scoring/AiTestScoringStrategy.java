@@ -5,6 +5,8 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.pjieyi.aianswer.common.ErrorCode;
+import com.pjieyi.aianswer.exception.BusinessException;
 import com.pjieyi.aianswer.manager.AIManager;
 import com.pjieyi.aianswer.model.dto.question.QuestionAnswerDTO;
 import com.pjieyi.aianswer.model.dto.question.QuestionContentDTO;
@@ -14,6 +16,8 @@ import com.pjieyi.aianswer.model.entity.UserAnswer;
 import com.pjieyi.aianswer.model.vo.QuestionVO;
 import com.pjieyi.aianswer.service.QuestionService;
 import org.apache.commons.lang3.StringUtils;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
@@ -34,9 +38,14 @@ public class AiTestScoringStrategy implements ScoringStrategy {
     private AIManager aiManager;
 
     private final Cache<String, String> aiAnswerCache =
-            Caffeine.newBuilder().initialCapacity(1024) //缓存容量
-                    .expireAfterAccess(5L, TimeUnit.MINUTES) //过期时间5分钟
+            Caffeine.newBuilder().initialCapacity(1024) // 缓存容量
+                    .expireAfterAccess(5L, TimeUnit.MINUTES) // 过期时间5分钟
                     .build();
+
+    @Resource
+    private RedissonClient redissonClient;
+
+    private static final String AI_ANSWER_LOCK = "AI_ANSWER_LOCK";
 
     /**
      * AI 评分系统消息
@@ -59,31 +68,52 @@ public class AiTestScoringStrategy implements ScoringStrategy {
     @Override
     public UserAnswer doScore(List<String> choices, App app) {
         Long appId = app.getId();
-        Question question = questionService.getOne(
-                Wrappers.lambdaQuery(Question.class).eq(Question::getAppId, appId)
-        );
 
-        QuestionVO questionVO = QuestionVO.objToVo(question);
         String choicesStr = JSONUtil.toJsonStr(choices);
         String cacheKey = this.buildCacheKey(appId, choicesStr);
         String aiAnswerCacheResult = aiAnswerCache.getIfPresent(cacheKey);
-        //没有缓存
-        if (StringUtils.isAnyBlank(aiAnswerCacheResult)) {
-            List<QuestionContentDTO> questionContent = questionVO.getQuestionContent();
-            String userMessage = this.getAiTestScoringUserMessage(app, questionContent, choices);
-            String result = aiManager.doRequest(AI_TEST_SCORING_SYSTEM_MESSAGE, userMessage, false, null);
-            // 截取需要的 JSON 信息
-            int start = result.indexOf("{");
-            int end = result.lastIndexOf("}");
-            aiAnswerCacheResult= result.substring(start, end + 1);
-            aiAnswerCache.put(cacheKey, aiAnswerCacheResult);
+        // 定义锁
+        RLock lock = redissonClient.getLock(AI_ANSWER_LOCK + ":" + cacheKey);
+        // 尝试获取锁
+        try {
+            // 5秒内尝试获取锁，如果成功获取倒锁后，10秒后锁释放
+            boolean tryLock = lock.tryLock(5, 15, TimeUnit.SECONDS);
+            if (!tryLock) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "获取AI答案失败，请稍后再试");
+            }
+            // 抢到锁了，执行后续业务逻辑
+            Question question = questionService.getOne(
+                    Wrappers.lambdaQuery(Question.class).eq(Question::getAppId, appId)
+            );
+            QuestionVO questionVO = QuestionVO.objToVo(question);
+            // 没有缓存
+            if (StringUtils.isAnyBlank(aiAnswerCacheResult)) {
+                List<QuestionContentDTO> questionContent = questionVO.getQuestionContent();
+                String userMessage = this.getAiTestScoringUserMessage(app, questionContent, choices);
+                String result = aiManager.doRequest(AI_TEST_SCORING_SYSTEM_MESSAGE, userMessage, false, null);
+                // 截取需要的 JSON 信息
+                int start = result.indexOf("{");
+                int end = result.lastIndexOf("}");
+                aiAnswerCacheResult = result.substring(start, end + 1);
+                aiAnswerCache.put(cacheKey, aiAnswerCacheResult);
+            }
+            UserAnswer userAnswer = JSONUtil.toBean(aiAnswerCacheResult, UserAnswer.class);
+            userAnswer.setAppId(app.getId());
+            userAnswer.setAppType(app.getAppType());
+            userAnswer.setScoringStrategy(app.getScoringStrategy());
+            userAnswer.setChoices(choicesStr);
+            return userAnswer;
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }finally {
+            if (lock != null && lock.isLocked()) {
+                //释放掉自己的锁
+                if (lock.isHeldByCurrentThread()) {
+                    lock.unlock();
+                }
+            }
         }
-        UserAnswer userAnswer = JSONUtil.toBean(aiAnswerCacheResult, UserAnswer.class);
-        userAnswer.setAppId(app.getId());
-        userAnswer.setAppType(app.getAppType());
-        userAnswer.setScoringStrategy(app.getScoringStrategy());
-        userAnswer.setChoices(choicesStr);
-        return userAnswer;
+
     }
 
     /**

@@ -1,14 +1,15 @@
 package com.pjieyi.aianswer.config;
 
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializer;
 
 /**
  *redis  session序列化器
- * 如果不配置这个就需要使用RedisIndexedSessionRepository 来和获取
+ * 如果不配置这个就需要使用RedisIndexedSessionRepository 来获取session登录信息
  */
-// @Configuration
+@Configuration
 public class RedisSessionRepositoryConfig {
 
     @Bean("springSessionDefaultRedisSerializer")
