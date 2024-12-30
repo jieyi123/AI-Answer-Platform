@@ -20,10 +20,6 @@ public class UserAnswerUpdateRequest implements Serializable {
      */
     private Long id;
 
-    /**
-     * 应用 id
-     */
-    private Long appId;
 
 
     /**

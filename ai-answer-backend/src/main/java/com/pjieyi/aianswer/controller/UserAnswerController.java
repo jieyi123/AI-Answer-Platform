@@ -90,6 +90,8 @@ public class UserAnswerController {
         //评分可能是AI评分，为了及时响应，先保存一些数据，等待AI响应成功后，在修改对应的信息
         UserAnswer userAnswerWithResult = scoringStrategyExecutor.doScore(choices, app);
         userAnswerWithResult.setId(newUserAnswerId);
+        //分库存储，不能修改appId
+        userAnswerWithResult.setAppId(null);
         userAnswerService.updateById(userAnswerWithResult);
         // 返回新写入的数据 id
         return ResultUtils.success(newUserAnswerId);

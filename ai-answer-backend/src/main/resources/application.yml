@@ -11,7 +11,6 @@ spring:
       matching-strategy: ant_path_matcher
   # session 配置
   session:
-    # todo 取消注释开启分布式 session（须先配置 Redis）
     store-type: redis
     # 7 天过期
     timeout: 604800
@@ -33,6 +32,38 @@ spring:
     multipart:
       # 大小限制
       max-file-size: 10MB
+  #分表配置
+  shardingsphere:
+    #数据源配置
+    datasource:
+      # 多数据源以逗号隔开即可
+      names: ai_answer
+      ai_answer:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        jdbc-url: jdbc:mysql://localhost:3306/ai_answer?allowPublicKeyRetrieval=true&useSSL=false&autoReconnect=true&characterEncoding=utf8
+        username: root
+        password: root
+    # 规则配置
+    rules:
+      sharding:
+        # 分片算法配置
+        sharding-algorithms:
+          # 自定义分片规则名
+          answer-table-inline:
+            ## inline 类型是简单的配置文件里面就能写的类型，其他还有自定义类等等
+            type: INLINE
+            props:
+              algorithm-expression: user_answer_$->{appId % 2} #偶数appId存储在user_answer_0
+        tables:
+          user_answer:
+            actual-data-nodes: ai_answer.user_answer_$->{0..1}  #取值为0-1
+            # 分表策略
+            table-strategy:
+              standard:
+                sharding-column: appId  #分表字段
+                sharding-algorithm-name: answer-table-inline
+
 server:
   address: 0.0.0.0
   port: 8101
