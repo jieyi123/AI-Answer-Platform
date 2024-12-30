@@ -1,7 +1,10 @@
 package com.pjieyi.aianswer.scoring;
 
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.pjieyi.aianswer.manager.AIManager;
 import com.pjieyi.aianswer.model.dto.question.QuestionAnswerDTO;
 import com.pjieyi.aianswer.model.dto.question.QuestionContentDTO;
@@ -10,16 +13,18 @@ import com.pjieyi.aianswer.model.entity.Question;
 import com.pjieyi.aianswer.model.entity.UserAnswer;
 import com.pjieyi.aianswer.model.vo.QuestionVO;
 import com.pjieyi.aianswer.service.QuestionService;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * AI测评类应用评分策略
  */
 @ScoringStrategyConfig(appType = 1, scoringStrategy = 1)
-public class AiTestScoringStrategy implements ScoringStrategy{
+public class AiTestScoringStrategy implements ScoringStrategy {
 
 
     @Resource
@@ -28,10 +33,15 @@ public class AiTestScoringStrategy implements ScoringStrategy{
     @Resource
     private AIManager aiManager;
 
+    private final Cache<String, String> aiAnswerCache =
+            Caffeine.newBuilder().initialCapacity(1024) //缓存容量
+                    .expireAfterAccess(5L, TimeUnit.MINUTES) //过期时间5分钟
+                    .build();
+
     /**
      * AI 评分系统消息
      */
-    private static final String AI_TEST_SCORING_SYSTEM_MESSAGE="你是一位严谨的判题专家，我会给你如下信息：\n" +
+    private static final String AI_TEST_SCORING_SYSTEM_MESSAGE = "你是一位严谨的判题专家，我会给你如下信息：\n" +
             "```\n" +
             "应用名称，\n" +
             "【【【应用描述】】】，\n" +
@@ -54,39 +64,47 @@ public class AiTestScoringStrategy implements ScoringStrategy{
         );
 
         QuestionVO questionVO = QuestionVO.objToVo(question);
-        List<QuestionContentDTO> questionContent = questionVO.getQuestionContent();
-        String userMessage = this.getAiTestScoringUserMessage(app, questionContent, choices);
-        String result = aiManager.doRequest(AI_TEST_SCORING_SYSTEM_MESSAGE, userMessage, false, null);
-        // 截取需要的 JSON 信息
-        int start = result.indexOf("{");
-        int end = result.lastIndexOf("}");
-        String json = result.substring(start, end + 1);
-        UserAnswer userAnswer=JSONUtil.toBean(json, UserAnswer.class);
+        String choicesStr = JSONUtil.toJsonStr(choices);
+        String cacheKey = this.buildCacheKey(appId, choicesStr);
+        String aiAnswerCacheResult = aiAnswerCache.getIfPresent(cacheKey);
+        //没有缓存
+        if (StringUtils.isAnyBlank(aiAnswerCacheResult)) {
+            List<QuestionContentDTO> questionContent = questionVO.getQuestionContent();
+            String userMessage = this.getAiTestScoringUserMessage(app, questionContent, choices);
+            String result = aiManager.doRequest(AI_TEST_SCORING_SYSTEM_MESSAGE, userMessage, false, null);
+            // 截取需要的 JSON 信息
+            int start = result.indexOf("{");
+            int end = result.lastIndexOf("}");
+            aiAnswerCacheResult= result.substring(start, end + 1);
+            aiAnswerCache.put(cacheKey, aiAnswerCacheResult);
+        }
+        UserAnswer userAnswer = JSONUtil.toBean(aiAnswerCacheResult, UserAnswer.class);
         userAnswer.setAppId(app.getId());
         userAnswer.setAppType(app.getAppType());
         userAnswer.setScoringStrategy(app.getScoringStrategy());
-        userAnswer.setChoices(JSONUtil.toJsonStr(choices));
-        return  userAnswer;
+        userAnswer.setChoices(choicesStr);
+        return userAnswer;
     }
 
     /**
      * AI 评分用户消息封装
+     *
      * @param app
      * @param questionContentDTO
      * @param choices
      * @return
      */
-    private String getAiTestScoringUserMessage(App app,List<QuestionContentDTO> questionContentDTO,List<String> choices){
-        StringBuilder userMessage=new StringBuilder();
+    private String getAiTestScoringUserMessage(App app, List<QuestionContentDTO> questionContentDTO, List<String> choices) {
+        StringBuilder userMessage = new StringBuilder();
         userMessage.append(app.getAppName()).append("\n");
         userMessage.append(app.getAppDesc()).append("\n");
         List<QuestionAnswerDTO> questionAnswerDTOList = new ArrayList<>();
-        for (int i=0;i<choices.size();i++){
+        for (int i = 0; i < choices.size(); i++) {
             QuestionAnswerDTO questionAnswerDTO = new QuestionAnswerDTO();
             questionAnswerDTO.setTitle(questionContentDTO.get(i).getTitle());
             List<QuestionContentDTO.Option> options = questionContentDTO.get(i).getOptions();
             for (QuestionContentDTO.Option option : options) {
-                if (option.getKey().equals(choices.get(i))){
+                if (option.getKey().equals(choices.get(i))) {
                     questionAnswerDTO.setUserAnswer(option.getValue());
                     break;
                 }
@@ -96,6 +114,17 @@ public class AiTestScoringStrategy implements ScoringStrategy{
         String jsonStr = JSONUtil.toJsonStr(questionAnswerDTOList);
         userMessage.append(jsonStr).append("\n");
         return userMessage.toString();
+    }
+
+    /**
+     * 构建缓存key
+     *
+     * @param appId      应用ID
+     * @param choicesStr 答案列表  ["A","B","C"]
+     * @return 返回一个 32 位 长度的十六进制字符串
+     */
+    private String buildCacheKey(Long appId, String choicesStr) {
+        return DigestUtil.md5Hex(appId + ":" + choicesStr);
     }
 
 
