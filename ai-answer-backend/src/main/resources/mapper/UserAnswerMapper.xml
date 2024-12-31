@@ -28,4 +28,18 @@
         resultScore,userId,createTime,
         updateTime,isDelete
     </sql>
+    <select id="doAppAnswerCount" resultType="com.pjieyi.aianswer.model.vo.AppAnswerCountVO">
+        select appId, count(appId) as answerCount
+        from user_answer
+        group by appId
+        order by answerCount desc
+        limit 10;
+    </select>
+    <select id="doAppAnswerResultCount" resultType="com.pjieyi.aianswer.model.vo.AppResultCountVO">
+        select resultName, count(resultName) as resultCount
+        from user_answer
+        where appId = #{appId} and resultName IS NOT NULL
+        group by resultName
+        order by resultCount desc;
+    </select>
 </mapper>
