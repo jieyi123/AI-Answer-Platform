@@ -1,6 +1,7 @@
 package com.pjieyi.aianswer.controller;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.IdUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.pjieyi.aianswer.annotation.AuthCheck;
@@ -26,6 +27,7 @@ import com.pjieyi.aianswer.service.UserAnswerService;
 import com.pjieyi.aianswer.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -65,6 +67,9 @@ public class UserAnswerController {
     @PostMapping("/add")
     public BaseResponse<Long> addUserAnswer(@RequestBody UserAnswerAddRequest userAnswerAddRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(userAnswerAddRequest == null, ErrorCode.PARAMS_ERROR);
+        if (userAnswerAddRequest.getId()==null || userAnswerAddRequest.getAppId()<=0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
         UserAnswer userAnswer = new UserAnswer();
         BeanUtils.copyProperties(userAnswerAddRequest, userAnswer);
         List<String> choices = userAnswerAddRequest.getChoices();
@@ -82,8 +87,12 @@ public class UserAnswerController {
         User loginUser = userService.getLoginUser(request);
         userAnswer.setUserId(loginUser.getId());
         // 写入数据库
-        boolean result = userAnswerService.save(userAnswer);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        try{
+            boolean result = userAnswerService.save(userAnswer);
+            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        }catch (DuplicateKeyException e){
+            throw new BusinessException(ErrorCode.OPERATION_ERROR,"请勿重复作答");
+        }
         // 返回新写入的数据 id
         long newUserAnswerId = userAnswer.getId();
         // 调用评分模块
@@ -95,6 +104,16 @@ public class UserAnswerController {
         userAnswerService.updateById(userAnswerWithResult);
         // 返回新写入的数据 id
         return ResultUtils.success(newUserAnswerId);
+    }
+
+    /**
+     * 生成用户答题记录id (确保幂等性)
+     * @return useranswer id
+     */
+    @GetMapping("/generate/id")
+    public BaseResponse<Long> generateUserAnswerId(){
+        //分布式系统中全局唯一id按照时间有序生成
+        return ResultUtils.success(IdUtil.getSnowflakeNextId());
     }
 
     /**
