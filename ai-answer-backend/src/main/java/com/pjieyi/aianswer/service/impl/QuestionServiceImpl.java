@@ -24,6 +24,7 @@ import com.pjieyi.aianswer.service.UserService;
 import com.pjieyi.aianswer.utils.SqlUtils;
 import com.zhipu.oapi.service.v4.model.ModelData;
 import io.reactivex.Flowable;
+import io.reactivex.Scheduler;
 import io.reactivex.schedulers.Schedulers;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
@@ -53,6 +54,10 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
 
     @Resource
     private AIManager aiManager;
+
+
+    @Resource
+    private Scheduler vipScheduler;
 
     // region AI 生成题目功能
     private static final String GENERATE_QUESTION_SYSTEM_MESSAGE = "你是一位严谨的出题专家，我会给你如下信息：\n" +
@@ -278,6 +283,63 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         userMessage.append(questionNum).append("\n");
         userMessage.append(optionNum).append("\n");
         return userMessage.toString();
+    }
+
+    public SseEmitter aiGenerateQuestionSseTest(AiGenerateQuestionRequest questionRequest,Boolean isVip) {
+        Long appId = questionRequest.getAppId();
+        Integer questionNum = questionRequest.getQuestionNum();
+        Integer optionNum = questionRequest.getOptionNum();
+        ThrowUtils.throwIf(appId==null,ErrorCode.PARAMS_ERROR);
+        App app = appService.getById(appId);
+        ThrowUtils.throwIf(app==null,ErrorCode.NOT_FOUND_ERROR);
+        String userMessage=getGenerateQuestionUserMessage(app,questionNum,optionNum);
+        //原子类，保证线程安全
+        AtomicInteger flag=new AtomicInteger(0);
+        //0表示永不超时
+        SseEmitter emitter=new SseEmitter(0L);
+        // 默认全局线程池
+        Scheduler scheduler = Schedulers.single();
+        if (isVip) {
+            scheduler = vipScheduler;
+        }
+        StringBuilder contentBuilder=new StringBuilder();
+        Flowable<ModelData> flowable = aiManager.doRequestStream(GENERATE_QUESTION_SYSTEM_MESSAGE, userMessage, null);
+        flowable.observeOn(scheduler)
+                .map(chunk->chunk.getChoices().get(0).getDelta().getContent())
+                .flatMap(message->{
+                    List<Character> characters=new ArrayList<>();
+                    for (char c : message.toCharArray()){
+                        characters.add(c);
+                    }
+                    return Flowable.fromIterable(characters);
+                })
+                .doOnNext(c->{
+                    //识别第一个{ 表示AI开始传输数据
+                    if (c=='{'){
+                        flag.addAndGet(1);
+                    }
+                    if (flag.get()>0){
+                        contentBuilder.append(c);
+                    }
+                    if (c=='}'){
+                        flag.addAndGet(-1);
+                        if (flag.get()==0){
+                            // 输出当前线程的名称
+                            System.out.println(Thread.currentThread().getName());
+                            // 模拟普通用户阻塞
+                            if (!isVip) {
+                                Thread.sleep(10000L);
+                            }
+                            //累积单套题目满足 json 格式后，sse 推送至前端
+                            //sse 需要压缩成当行 json，sse 无法识别换行
+                            emitter.send(JSONUtil.toJsonStr(contentBuilder.toString()));
+                            //清空当前题目，重新拼接下一道题目
+                            contentBuilder.setLength(0);
+                        }
+                    }
+                })
+                .doOnComplete(emitter::complete).subscribe();;
+        return emitter;
     }
 
 

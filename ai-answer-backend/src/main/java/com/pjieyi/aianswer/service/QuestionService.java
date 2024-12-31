@@ -67,4 +67,12 @@ public interface QuestionService extends IService<Question> {
      * @return
      */
     SseEmitter aiGenerateQuestionSse(AiGenerateQuestionRequest questionRequest);
+
+    /**
+     * 测试线程池隔离
+     * @param questionRequest
+     * @param isVip
+     * @return
+     */
+    SseEmitter aiGenerateQuestionSseTest(AiGenerateQuestionRequest questionRequest,Boolean isVip);
 }
