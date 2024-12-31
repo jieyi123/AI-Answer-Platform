@@ -5,6 +5,12 @@ declare namespace API {
     questionNum?: number;
   };
 
+  type aiGenerateQuestionSseUsingGETParams = {
+    appId?: number;
+    optionNum?: number;
+    questionNum?: number;
+  };
+
   type App = {
     appDesc?: string;
     appIcon?: string;
@@ -531,6 +537,10 @@ declare namespace API {
     userVO?: UserVO;
   };
 
+  type SseEmitter = {
+    timeout?: number;
+  };
+
   type uploadFileUsingPOSTParams = {
     biz?: string;
   };
@@ -577,6 +587,7 @@ declare namespace API {
   type UserAnswerAddRequest = {
     appId?: number;
     choices?: string[];
+    id?: number;
   };
 
   type UserAnswerEditRequest = {
@@ -604,7 +615,6 @@ declare namespace API {
   };
 
   type UserAnswerUpdateRequest = {
-    appId?: number;
     choices?: string[];
     id?: number;
   };

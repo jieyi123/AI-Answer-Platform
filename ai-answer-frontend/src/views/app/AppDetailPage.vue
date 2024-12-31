@@ -37,7 +37,7 @@
             >设置评分
             </a-button>
             <a-button v-if="isMy" :href="`/add/app/${id}`">修改应用</a-button>
-            <a-button @click="streamAPI">测试调用</a-button>
+            <a-button @click="streamAPI">AI生成题目</a-button>
           </a-space>
         </a-col>
         <a-col flex="320px">

@@ -8,30 +8,30 @@
       </h2>
       <div>
         <a-radio-group
-            direction="vertical"
-            v-model="currentAnswer"
-            :options="questionOptions"
-            @change="doRadioChange"
+          direction="vertical"
+          v-model="currentAnswer"
+          :options="questionOptions"
+          @change="doRadioChange"
         />
       </div>
       <div style="margin-top: 24px">
         <a-space size="large">
           <a-button
-              type="primary"
-              circle
-              v-if="current < questionContent.length"
-              :disabled="!currentAnswer"
-              @click="current += 1"
+            type="primary"
+            circle
+            v-if="current < questionContent.length"
+            :disabled="!currentAnswer"
+            @click="current += 1"
           >
             下一题
           </a-button>
           <a-button
-              type="primary"
-              v-if="current === questionContent.length"
-              circle
-              :loading="submitting"
-              :disabled="!currentAnswer"
-              @click="doSubmit"
+            type="primary"
+            v-if="current === questionContent.length"
+            circle
+            :loading="submitting"
+            :disabled="!currentAnswer"
+            @click="doSubmit"
           >
             {{ submitting ? "评分中" : "查看结果" }}
           </a-button>
@@ -47,6 +47,7 @@
 import {
   computed,
   defineProps,
+  onMounted,
   reactive,
   ref,
   watchEffect,
@@ -57,10 +58,15 @@ import { useRouter } from "vue-router";
 import { listQuestionVoByPageUsingPost } from "@/api/questionController";
 import message from "@arco-design/web-vue/es/message";
 import { getAppVoByIdUsingGet } from "@/api/appController";
-import { addUserAnswerUsingPost } from "@/api/userAnswerController";
+import {
+  addUserAnswerUsingPost,
+  generateUserAnswerIdUsingGet,
+} from "@/api/userAnswerController";
+
 interface Props {
   appId: string;
 }
+
 const props = withDefaults(defineProps<Props>(), {
   appId: () => {
     return "";
@@ -77,19 +83,20 @@ const currentQuestion = ref<API.QuestionContentDTO>({});
 // 当前题目选项
 const questionOptions = computed(() => {
   return currentQuestion.value?.options
-      ? currentQuestion.value.options.map((option) => {
+    ? currentQuestion.value.options.map((option) => {
         return {
           label: `${option.key}. ${option.value}`,
           value: option.key,
         };
       })
-      : [];
+    : [];
 });
 // 当前答案
 const currentAnswer = ref<string>();
 // 回答列表
 const answerList = reactive<string[]>([]);
 const submitting = ref(false);
+const userAnswerId = ref<number>();
 /**
  * 加载数据
  */
@@ -129,6 +136,16 @@ watchEffect(() => {
   currentQuestion.value = questionContent.value[current.value - 1];
   currentAnswer.value = answerList[current.value - 1];
 });
+
+//进入页面获取应用id
+onMounted(async () => {
+  const res = await generateUserAnswerIdUsingGet();
+  if (res.data.code === 0) {
+    userAnswerId.value = res.data.data;
+  } else {
+    message.error("生成id失败，" + res.data.message);
+  }
+});
 /**
  * 选中选项后，保存选项记录
  * @param value
@@ -145,6 +162,7 @@ const doSubmit = async () => {
   }
   submitting.value = true;
   const res = await addUserAnswerUsingPost({
+    id: userAnswerId.value,
     appId: props.appId as any,
     choices: answerList,
   });
