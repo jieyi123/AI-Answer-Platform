@@ -36,6 +36,11 @@ declare namespace API {
     scoringStrategy?: number;
   };
 
+  type AppAnswerCountVO = {
+    answerCount?: number;
+    appId?: number;
+  };
+
   type AppEditRequest = {
     appDesc?: string;
     appIcon?: string;
@@ -61,6 +66,11 @@ declare namespace API {
     sortField?: string;
     sortOrder?: string;
     userId?: number;
+  };
+
+  type AppResultCountVO = {
+    resultCount?: number;
+    resultName?: string;
   };
 
   type AppUpdateRequest = {
@@ -101,6 +111,18 @@ declare namespace API {
   type BaseResponseBoolean_ = {
     code?: number;
     data?: boolean;
+    message?: string;
+  };
+
+  type BaseResponseListAppAnswerCountVO_ = {
+    code?: number;
+    data?: AppAnswerCountVO[];
+    message?: string;
+  };
+
+  type BaseResponseListAppResultCountVO_ = {
+    code?: number;
+    data?: AppResultCountVO[];
     message?: string;
   };
 
@@ -220,6 +242,11 @@ declare namespace API {
 
   type DeleteRequest = {
     id?: number;
+  };
+
+  type getAppAnswerResultCountUsingGETParams = {
+    /** appId */
+    appId?: number;
   };
 
   type getAppVOByIdUsingGETParams = {
