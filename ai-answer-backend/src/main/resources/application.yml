@@ -105,3 +105,11 @@ knife4j:
 # 智普AI
 ai:
   secretKey:
+
+# 阿里云oss
+aliyun:
+  oss:
+    accessKeySecret:
+    accessKeyId:
+    bucketName:
+    endpoint:

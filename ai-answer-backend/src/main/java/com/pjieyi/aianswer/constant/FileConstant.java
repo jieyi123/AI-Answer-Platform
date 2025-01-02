@@ -8,8 +8,8 @@ package com.pjieyi.aianswer.constant;
 public interface FileConstant {
 
     /**
-     * COS 访问地址
+     * oss 访问地址
      * todo 需替换配置
      */
-    String COS_HOST = "https://pjieyi.icu";
+    String OSS_HOST = "https://oss-cn-chengdu.aliyuncs.com";
 }

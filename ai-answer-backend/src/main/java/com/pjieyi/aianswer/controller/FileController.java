@@ -12,9 +12,13 @@ import com.pjieyi.aianswer.model.entity.User;
 import com.pjieyi.aianswer.model.enums.FileUploadBizEnum;
 import com.pjieyi.aianswer.service.UserService;
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.UUID;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+
+import com.pjieyi.aianswer.utils.AliyunOssUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -39,6 +43,20 @@ public class FileController {
     @Resource
     private CosManager cosManager;
 
+    @Resource
+    private AliyunOssUtil aliyunOss;
+
+
+    @PostMapping("/upload")
+    public BaseResponse<String> upload(@RequestPart("file") MultipartFile file,UploadFileRequest uploadFileRequest, HttpServletRequest request) throws IOException {
+        //获取原始文件名
+        String filename=file.getOriginalFilename();
+        filename= UUID.randomUUID()+filename.substring(filename.lastIndexOf("."));
+        String url=aliyunOss.upload(filename,file.getInputStream());
+        //file.transferTo(new File("C:\\Users\\pjy17\\Desktop\\img\\"+filename));
+        return ResultUtils.success(url);
+    }
+
     /**
      * 文件上传
      *
@@ -47,41 +65,41 @@ public class FileController {
      * @param request
      * @return
      */
-    @PostMapping("/upload")
-    public BaseResponse<String> uploadFile(@RequestPart("file") MultipartFile multipartFile,
-            UploadFileRequest uploadFileRequest, HttpServletRequest request) {
-        String biz = uploadFileRequest.getBiz();
-        FileUploadBizEnum fileUploadBizEnum = FileUploadBizEnum.getEnumByValue(biz);
-        if (fileUploadBizEnum == null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-        }
-        validFile(multipartFile, fileUploadBizEnum);
-        User loginUser = userService.getLoginUser(request);
-        // 文件目录：根据业务、用户来划分
-        String uuid = RandomStringUtils.randomAlphanumeric(8);
-        String filename = uuid + "-" + multipartFile.getOriginalFilename();
-        String filepath = String.format("/%s/%s/%s", fileUploadBizEnum.getValue(), loginUser.getId(), filename);
-        File file = null;
-        try {
-            // 上传文件
-            file = File.createTempFile(filepath, null);
-            multipartFile.transferTo(file);
-            cosManager.putObject(filepath, file);
-            // 返回可访问地址
-            return ResultUtils.success(FileConstant.COS_HOST + filepath);
-        } catch (Exception e) {
-            log.error("file upload error, filepath = " + filepath, e);
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传失败");
-        } finally {
-            if (file != null) {
-                // 删除临时文件
-                boolean delete = file.delete();
-                if (!delete) {
-                    log.error("file delete error, filepath = {}", filepath);
-                }
-            }
-        }
-    }
+    // @PostMapping("/upload")
+    // public BaseResponse<String> uploadFile(@RequestPart("file") MultipartFile multipartFile,
+    //         UploadFileRequest uploadFileRequest, HttpServletRequest request) {
+    //     String biz = uploadFileRequest.getBiz();
+    //     FileUploadBizEnum fileUploadBizEnum = FileUploadBizEnum.getEnumByValue(biz);
+    //     if (fileUploadBizEnum == null) {
+    //         throw new BusinessException(ErrorCode.PARAMS_ERROR);
+    //     }
+    //     validFile(multipartFile, fileUploadBizEnum);
+    //     User loginUser = userService.getLoginUser(request);
+    //     // 文件目录：根据业务、用户来划分
+    //     String uuid = RandomStringUtils.randomAlphanumeric(8);
+    //     String filename = uuid + "-" + multipartFile.getOriginalFilename();
+    //     String filepath = String.format("/%s/%s/%s", fileUploadBizEnum.getValue(), loginUser.getId(), filename);
+    //     File file = null;
+    //     try {
+    //         // 上传文件
+    //         file = File.createTempFile(filepath, null);
+    //         multipartFile.transferTo(file);
+    //         cosManager.putObject(filepath, file);
+    //         // 返回可访问地址
+    //         return ResultUtils.success(FileConstant.COS_HOST + filepath);
+    //     } catch (Exception e) {
+    //         log.error("file upload error, filepath = " + filepath, e);
+    //         throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传失败");
+    //     } finally {
+    //         if (file != null) {
+    //             // 删除临时文件
+    //             boolean delete = file.delete();
+    //             if (!delete) {
+    //                 log.error("file delete error, filepath = {}", filepath);
+    //             }
+    //         }
+    //     }
+    // }
 
     /**
      * 校验文件
