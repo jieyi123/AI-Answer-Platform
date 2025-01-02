@@ -75,7 +75,7 @@
       >
         <a-form :model="form">
           <a-form-item field="post" label="审核状态">
-            <a-select v-model="form.reviewStatus">
+            <a-select v-model="form.reviewStatus" placeholder="请选择审核状态">
               <a-option :value="REVIEW_STATUS_ENUM.PASS">通过</a-option>
               <a-option :value="REVIEW_STATUS_ENUM.REJECT">拒绝</a-option>
             </a-select>
@@ -197,7 +197,7 @@ const doReview = (record: API.App) => {
     return;
   }
   form.id = record.id;
-  form.reviewStatus = record.reviewStatus;
+  form.reviewStatus = record.reviewStatus != 0 ? record.reviewStatus : "";
   form.reviewMessage = record.reviewMessage;
   visible.value = true;
 };
