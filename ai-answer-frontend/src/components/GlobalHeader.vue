@@ -2,14 +2,14 @@
   <a-row id="globalHeader" align="center" :wrap="false">
     <a-col flex="auto">
       <a-menu
-          mode="horizontal"
-          :selected-keys="selectedKeys"
-          @menu-item-click="doMenuClick"
+        mode="horizontal"
+        :selected-keys="selectedKeys"
+        @menu-item-click="doMenuClick"
       >
         <a-menu-item
-            key="0"
-            :style="{ padding: 0, marginRight: '38px' }"
-            disabled
+          key="0"
+          :style="{ padding: 0, marginRight: '38px' }"
+          disabled
         >
           <div class="titleBar">
             <img class="logo" src="../assets/logo.png" />
@@ -23,17 +23,22 @@
     </a-col>
     <a-col flex="70px">
       <div v-if="loginUserStore.loginUser.id">
-        {{ loginUserStore.loginUser.userName ?? "无名" }}
+        <a-dropdown trigger="hover">
+          <a-button>{{ loginUserStore.loginUser.userName ?? "无名" }}</a-button>
+          <template #content>
+            <a-doption @click="logout">退出登录</a-doption>
+          </template>
+        </a-dropdown>
       </div>
       <div v-else>
         <a-button type="primary" href="/user/login">登录</a-button>
       </div>
     </a-col>
     <a-col flex="60px">
-      <a-avatar >
+      <a-avatar>
         <img
-            alt="avatar"
-            src="https://p1-arco.byteimg.com/tos-cn-i-uwbnlip3yd/3ee5f13fb09879ecb5185e440cef6eb9.png~tplv-uwbnlip3yd-webp.webp"
+          alt="avatar"
+          src="https://p1-arco.byteimg.com/tos-cn-i-uwbnlip3yd/3ee5f13fb09879ecb5185e440cef6eb9.png~tplv-uwbnlip3yd-webp.webp"
         />
       </a-avatar>
     </a-col>
@@ -45,6 +50,9 @@ import { useRouter } from "vue-router";
 import { computed, ref } from "vue";
 import { useLoginUserStore } from "@/store/userStore";
 import checkAccess from "@/access/checkAccess";
+import { userLogoutUsingPost } from "@/api/userController";
+import message from "@arco-design/web-vue/es/message";
+
 const loginUserStore = useLoginUserStore();
 const router = useRouter();
 // 当前选中的菜单项
@@ -72,18 +80,31 @@ const doMenuClick = (key: string) => {
     path: key,
   });
 };
+
+const logout = async () => {
+  const res = await userLogoutUsingPost();
+  if (res.data.code === 0) {
+    message.success("退出登录成功");
+    router.push("/user/login");
+  } else {
+    message.error("退出登录失败，" + res.data.message);
+  }
+};
 </script>
 <style scoped>
 #globalHeader {
 }
+
 .titleBar {
   display: flex;
   align-items: center;
 }
+
 .title {
   margin-left: 16px;
   color: black;
 }
+
 .logo {
   height: 48px;
 }
